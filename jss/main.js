@@ -1,7 +1,10 @@
 /* ═══════════════════════════════════════════════
-   AMARA 4 UGENYA — Campaign Website Scripts
+   SAWO 4 UGENYA — Campaign Website Scripts
    js/main.js
    ═══════════════════════════════════════════════ */
+
+/* ── BACKEND URL ────────────────────────────── */
+const BACKEND_URL = 'https://sawo-backend.onrender.com'; // ← update if your Render URL differs
 
 /* ── MOBILE NAV ─────────────────────────────── */
 const hamburger      = document.getElementById('hamburger');
@@ -46,7 +49,6 @@ const revealObserver = new IntersectionObserver(
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
-        // Stagger children if grid
         const siblings = entry.target.parentElement.querySelectorAll('.reveal');
         siblings.forEach((el, i) => {
           el.style.transitionDelay = `${i * 0.07}s`;
@@ -68,11 +70,8 @@ function showToast(message) {
 
 /* ── DONATION AMOUNT SELECTOR ───────────────── */
 function setAmount(value, btn) {
-  // Deactivate all buttons
   document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-  // Activate clicked
   btn.classList.add('active');
-  // Set input
   const input = document.getElementById('donateAmount');
   input.value = value;
   if (value === '') input.focus();
@@ -81,15 +80,9 @@ function setAmount(value, btn) {
 /* ── FORMAT KENYAN PHONE TO SAFARICOM FORMAT ── */
 function formatPhone(raw) {
   const digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('0') && digits.length === 10) {
-    return '254' + digits.slice(1);
-  }
-  if (digits.startsWith('254') && digits.length === 12) {
-    return digits;
-  }
-  if (digits.startsWith('7') && digits.length === 9) {
-    return '254' + digits;
-  }
+  if (digits.startsWith('0') && digits.length === 10) return '254' + digits.slice(1);
+  if (digits.startsWith('254') && digits.length === 12) return digits;
+  if (digits.startsWith('7') && digits.length === 9) return '254' + digits;
   return null;
 }
 
@@ -97,17 +90,20 @@ function formatPhone(raw) {
 async function initiateDonation() {
   const amountInput = document.getElementById('donateAmount');
   const phoneInput  = document.getElementById('donatePhone');
+  const nameInput   = document.getElementById('donateName');
   const btn         = document.querySelector('#donate .donate-btn');
 
-  const amount = parseInt(amountInput.value);
+  const amount   = parseInt(amountInput.value);
   const rawPhone = phoneInput.value.trim();
 
-  // Validate
+  // Validate amount
   if (!amount || amount < 10) {
     showToast('⚠️ Please enter a valid amount (min KES 10)');
     amountInput.focus();
     return;
   }
+
+  // Validate phone
   if (!rawPhone) {
     showToast('⚠️ Please enter your M-Pesa phone number');
     phoneInput.focus();
@@ -123,99 +119,124 @@ async function initiateDonation() {
   // Loading state
   const originalText = btn.innerHTML;
   btn.innerHTML = '⏳ Sending M-Pesa prompt...';
-  btn.disabled = true;
+  btn.disabled  = true;
 
   try {
-    /* ── CONNECT TO YOUR DARAJA BACKEND HERE ──────────────────────
-    
-       Replace this block with a real fetch call to your backend:
+    const res = await fetch(`${BACKEND_URL}/mpesa/stkpush`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone:  phone,
+        amount: amount,
+        name:   nameInput?.value.trim() || 'Anonymous'
+      })
+    });
 
-       const res = await fetch('https://api.yoursite.co.ke/mpesa/stkpush', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-           phone:       phone,          // e.g. "254712345678"
-           amount:      amount,          // e.g. 500
-           accountRef:  'AMARA4UGENYA', // shows on M-Pesa receipt
-           description: 'Campaign Donation - Ugenya MP 2027'
-         })
-       });
+    const data = await res.json();
 
-       const data = await res.json();
-       if (!res.ok) throw new Error(data.message || 'Payment failed');
+    if (!res.ok) {
+      throw new Error(data.message || 'Payment request failed.');
+    }
 
-       Daraja STK Push requirements:
-       ─────────────────────────────
-       1. Safaricom Developer account → developer.safaricom.co.ke
-       2. Register a Paybill or Buy Goods Till number
-       3. Get Consumer Key + Consumer Secret (sandbox → then production)
-       4. Backend endpoints needed:
-          a) POST /auth   → fetch OAuth token (expires every 3600s)
-          b) POST /stkpush → call BusinessPayBill or CustomerPayBillOnline
-          c) POST /callback → receive Safaricom payment confirmation
-       5. Your callback URL must be publicly accessible (use ngrok for dev)
-
-    ─────────────────────────────────────────────────────────────── */
-
-    // SIMULATION (remove when backend is ready)
-    await new Promise(resolve => setTimeout(resolve, 2500));
-
-    showToast(`📱 Check your phone! M-Pesa prompt sent to ${rawPhone.slice(0,4)}****`);
+    showToast(`📱 Check your phone! M-Pesa prompt sent to ${rawPhone.slice(0, 4)}****`);
     amountInput.value = '';
-    phoneInput.value = '';
-    document.getElementById('donateName').value = '';
+    phoneInput.value  = '';
+    if (nameInput) nameInput.value = '';
 
   } catch (err) {
-    showToast('❌ Payment failed. Please try again or call our hotline.');
-    console.error('Daraja error:', err);
+    console.error('Donation error:', err);
+    // Network failure vs server error
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      showToast('❌ Cannot reach server. Check your connection and try again.');
+    } else {
+      showToast('❌ ' + (err.message || 'Payment failed. Please try again.'));
+    }
   } finally {
     btn.innerHTML = originalText;
-    btn.disabled = false;
+    btn.disabled  = false;
   }
 }
 
 /* ── VOLUNTEER FORM SUBMIT ───────────────────── */
-function submitVolunteer(e) {
-  const btn = e.currentTarget;
+async function submitVolunteer(e) {
+  const btn    = e.currentTarget;
+  const form   = btn.closest('.contact-form');
+  const inputs = form.querySelectorAll('input, select');
 
-  // Simple validation: check first input (first name)
-  const inputs = btn.closest('.contact-form').querySelectorAll('input, select');
-  const firstName = inputs[0].value.trim();
-  const phone     = inputs[2].value.trim();
+  // Collect values
+  const firstName = inputs[0]?.value.trim() || '';
+  const lastName  = inputs[1]?.value.trim() || '';
+  const rawPhone  = inputs[2]?.value.trim() || '';
+  const email     = inputs[3]?.value.trim() || '';
+  const ward      = form.querySelector('select[name="ward"]')?.value   || inputs[4]?.value || 'Not specified';
+  const role      = form.querySelector('select[name="role"]')?.value   || inputs[5]?.value || 'Not specified';
 
+  // Validate
   if (!firstName) {
     showToast('⚠️ Please enter your first name');
     inputs[0].focus();
     return;
   }
-  if (!phone) {
+  if (!rawPhone) {
     showToast('⚠️ Please enter your phone number');
+    inputs[2].focus();
+    return;
+  }
+  const phone = formatPhone(rawPhone);
+  if (!phone) {
+    showToast('⚠️ Enter a valid Kenyan number e.g. 0712 345 678');
     inputs[2].focus();
     return;
   }
 
   const originalText = btn.innerHTML;
-  btn.innerHTML = '✅ Registered! Asante sana!';
-  btn.style.background = '#009950';
-  btn.disabled = true;
+  btn.innerHTML = '⏳ Registering...';
+  btn.disabled  = true;
 
-  showToast('🎉 Welcome to the Ugenya movement! We will reach out soon.');
-
-  // Reset after 4 seconds
-  setTimeout(() => {
-    btn.innerHTML = originalText;
-    btn.style.background = '';
-    btn.disabled = false;
-    // Clear form
-    inputs.forEach(input => {
-      if (input.tagName === 'SELECT') input.selectedIndex = 0;
-      else input.value = '';
+  try {
+    const res = await fetch(`${BACKEND_URL}/volunteers`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, phone, email, ward, role })
     });
-  }, 4000);
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Registration failed.');
+    }
+
+    btn.innerHTML      = '✅ Registered! Asante sana!';
+    btn.style.background = '#009950';
+    showToast('🎉 Welcome to the Ugenya movement! We will reach out soon.');
+
+    // Reset form after 4 seconds
+    setTimeout(() => {
+      btn.innerHTML      = originalText;
+      btn.style.background = '';
+      btn.disabled       = false;
+      inputs.forEach(input => {
+        if (input.tagName === 'SELECT') input.selectedIndex = 0;
+        else input.value = '';
+      });
+    }, 4000);
+
+  } catch (err) {
+    console.error('Volunteer error:', err);
+    if (err.message.includes('already registered')) {
+      showToast('ℹ️ This number is already registered. Asante!');
+    } else if (err instanceof TypeError && err.message.includes('fetch')) {
+      showToast('❌ Cannot reach server. Check your connection.');
+    } else {
+      showToast('❌ ' + (err.message || 'Registration failed. Try again.'));
+    }
+    btn.innerHTML = originalText;
+    btn.disabled  = false;
+  }
 }
 
 /* ── ACTIVE NAV LINK ON SCROLL ──────────────── */
-const sections  = document.querySelectorAll('section[id]');
+const sections   = document.querySelectorAll('section[id]');
 const navAnchors = document.querySelectorAll('.nav-links a');
 
 const sectionObserver = new IntersectionObserver(
@@ -224,8 +245,8 @@ const sectionObserver = new IntersectionObserver(
       if (entry.isIntersecting) {
         const id = entry.target.getAttribute('id');
         navAnchors.forEach(a => {
-          a.style.color    = a.getAttribute('href') === `#${id}` ? 'var(--green)' : '';
-          a.style.opacity  = a.getAttribute('href') === `#${id}` ? '1' : '';
+          a.style.color   = a.getAttribute('href') === `#${id}` ? 'var(--green)' : '';
+          a.style.opacity = a.getAttribute('href') === `#${id}` ? '1' : '';
         });
       }
     });

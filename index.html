@@ -471,7 +471,7 @@
       <div class="contact-info">
         <div class="contact-item reveal"><div class="contact-icon">📍</div><div><div class="contact-item-title">Campaign Office</div><div class="contact-item-val">Sega Town Centre, Ugenya<br/>Siaya County, Kenya</div></div></div>
         <div class="contact-item reveal"><div class="contact-icon">📞</div><div><div class="contact-item-title">Campaign Hotline</div><div class="contact-item-val">+254 700 000 000<br/>Mon–Sat, 7am–7pm</div></div></div>
-        <div class="contact-item reveal"><div class="contact-icon">✉️</div><div><div class="contact-item-title">Email</div><div class="contact-item-val"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7f161119103f0c1e08104b120f0a181a11061e511c1051141a">[email&#160;protected]</a></div></div></div>
+        <div class="contact-item reveal"><div class="contact-icon">✉️</div><div><div class="contact-item-title">Email</div><div class="contact-item-val">info@sawo4mpugenya.co.ke</div></div></div>
         <div class="contact-item reveal"><div class="contact-icon">🌐</div><div><div class="contact-item-title">Ward Offices</div><div class="contact-item-val">Ukwala · North Ugenya<br/>East Ugenya · West Ugenya</div></div></div>
       </div>
     </div>
@@ -531,7 +531,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
   /* NAV */
   const hamburger = document.getElementById('hamburger');
   const navDrawer = document.getElementById('navDrawer');
@@ -686,3 +686,12 @@
         document.querySelectorAll('.nav-links a').forEach(a => {
           a.style.color = a.getAttribute('href') === `#${id}` ? 'var(--green)' : '';
       
+          a.style.opacity = a.getAttribute('href') === `#${id}` ? '1' : '';
+        });
+      }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('section[id]').forEach(s => sectionObserver.observe(s));
+</script>
+</body>
+</html>
